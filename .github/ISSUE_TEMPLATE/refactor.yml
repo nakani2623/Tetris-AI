@@ -1,0 +1,39 @@
+name: Refactor
+description: Propose a code-quality or structural improvement without changing behavior.
+title: "[Refactor] "
+body:
+  - type: markdown
+    attributes:
+      value: Refactors should preserve existing behavior unless a behavior change is explicitly described.
+  - type: textarea
+    id: area
+    attributes:
+      label: Area to refactor
+      description: Identify the relevant package, class, or subsystem.
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Current issue
+      description: Explain what is difficult to maintain, understand, test, or extend.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed refactor
+      description: Describe the structural or code-quality change you recommend.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Behavior and compatibility
+      description: Confirm whether behavior should remain unchanged, or describe any intentional change.
+      placeholder: No behavior change expected.
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: List relevant tests or checks that should pass after the refactor.

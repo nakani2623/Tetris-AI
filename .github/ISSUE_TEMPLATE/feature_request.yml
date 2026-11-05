@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest an addition or improvement to the game.
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: Describe the need behind the idea so it can be evaluated in context.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem should this solve?
+      description: Explain what is difficult or missing for players or contributors.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed feature
+      description: Describe what you would like the game or project to do.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Note any alternatives or workarounds you have considered.
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add examples, mockups, or other information that may help.

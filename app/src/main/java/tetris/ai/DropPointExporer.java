@@ -1,13 +1,14 @@
 package tetris.ai;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
 
 import tetris.engine.Board;
 import tetris.engine.GameEngine;
-import tetris.engine.Tetromino;
 
 /**
  * PointExporer
@@ -28,47 +29,72 @@ public class DropPointExporer {
         actions.add(AIAction.ROTATE_COUNTER_CLOCKWISE);
     }
 
-    private void exploreFrom(DropPoint baseline) {
-        if (isKnown(baseline)) {
-            return;
+    private void breathFirstExploreFrom(DropPoint baseline) {
+        Queue<DropPoint> queue = new ArrayDeque<>();
+        queue.add(baseline);
+
+        while (!queue.isEmpty()) {
+            DropPoint current = queue.remove();
+            if (isKnown(current)) {
+                continue;
         }
 
-        dropPoints.add(baseline);
+            dropPoints.add(current);
 
         for (AIAction action : actions) {
-            board.resetCurrentTetromino(baseline.tetromino);
-            action.execute(engine);
+                DropPoint nextDropPoint = new DropPoint(current);
+                nextDropPoint.executionOrder.add(action);
 
-            DropPoint newDropPoint = new DropPoint();
-            List<AIAction> executionOrder = new ArrayList<>(baseline.executionOrder);
-            executionOrder.add(action);
-            newDropPoint.executionOrder = executionOrder;
-            newDropPoint.tetromino = new Tetromino(board.getcurrentTetromino());
-            newDropPoint.ghost = new Tetromino(board.getShadowTetromino());
+                action.execute(nextDropPoint.engine);
+                queue.add(nextDropPoint);
+            }
+        }
 
-            exploreFrom(newDropPoint);
+        for (DropPoint dp : dropPoints) {
+            dp.executionOrder.add(AIAction.HARD_DROP);
         }
     }
 
     private boolean isKnown(DropPoint newPoint) {
         for (DropPoint known : dropPoints) {
-            if (newPoint.ghost.isSamePosition(known.ghost))
+            if (newPoint.getGhost().isSamePositionAndRotation(known.getGhost()))
                 return true;
         }
         return false;
     }
 
-    public Set<DropPoint> get() {
-        DropPoint origin = new DropPoint();
-        origin.executionOrder = new ArrayList<>();
-        origin.tetromino = new Tetromino(board.getcurrentTetromino());
-        origin.ghost = new Tetromino(board.getShadowTetromino());
+    // Removes positions occupy the same block but have different rotation states
+    private void removeDuplicates() {
+        List<DropPoint> unique = new ArrayList<>();
 
-        exploreFrom(origin);
+        for (DropPoint candidate : dropPoints) {
+            int duplicateIndex = -1;
 
-        for (DropPoint dp : dropPoints) {
-            dp.executionOrder.add(AIAction.HARD_DROP);
+            for (int i = 0; i < unique.size(); i++) {
+                if (candidate.getGhost()
+                        .isSamePosition(unique.get(i).getGhost())) {
+                    duplicateIndex = i;
+                    break;
+                }
+            }
+
+            if (duplicateIndex == -1) {
+                unique.add(candidate);
+            } else if (candidate.executionOrder.size()
+                    < unique.get(duplicateIndex).executionOrder.size()) {
+                unique.set(duplicateIndex, candidate);
+            }
         }
+
+        dropPoints.clear();
+        dropPoints.addAll(unique);
+    }
+
+    public Set<DropPoint> run() {
+        DropPoint origin = new DropPoint(engine);
+        breathFirstExploreFrom(origin);
+
+        removeDuplicates();
 
         return dropPoints;
     }

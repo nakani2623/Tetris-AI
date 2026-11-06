@@ -21,7 +21,7 @@ public class Main {
 
     public void run() throws InterruptedException, ExecutionException {
         GameEngine explorerEngine = new GameEngine(this.engine);
-        Set<DropPoint> dropPoints = new DropPointExporer(explorerEngine).get();
+        Set<DropPoint> dropPoints = new DropPointExporer(explorerEngine).run();
         if (dropPoints.isEmpty()) {
             return;
         }

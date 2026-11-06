@@ -196,6 +196,10 @@ public class Tetromino extends Piece {
         return true;
     }
 
+    public boolean isSamePositionAndRotation(Tetromino other) {
+        return this.isSamePosition(other) && this.rotationState == other.rotationState;
+    }
+
     // debug helpers
     public String toString() {
         String str = "tetromino: "+this.type+" at:";

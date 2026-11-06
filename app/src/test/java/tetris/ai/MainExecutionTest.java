@@ -34,7 +34,7 @@ class MainExecutionTest {
         Board board = engine.getBoard();
         board.setCurrentTetromino(current);
         double originalX = current.centre.getX();
-        DropPoint dropPoint = new DropPoint();
+        DropPoint dropPoint = new DropPoint(engine);
         dropPoint.executionOrder = new ArrayList<>();
         dropPoint.executionOrder.add(AIAction.MOVE_LEFT);
         Main ai = new Main(engine, queuedDispatcher);

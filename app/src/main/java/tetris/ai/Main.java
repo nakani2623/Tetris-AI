@@ -76,16 +76,4 @@ public class Main {
         System.out.println("Stack height on " + engine + ": " + maxHeight);
         return maxHeight;
     }
-
-    public static void main(String[] args) {
-        GameEngine engine = new GameEngine(10, 20, null);
-        DropPointExporer explorer = new DropPointExporer(engine);
-        engine.start();
-
-        for (DropPoint dp : explorer.get()) {
-            System.out.println(dp);
-        }
-
-        System.out.println("Total drop points: " + explorer.get().size());
-    }
 }

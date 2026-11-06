@@ -37,11 +37,11 @@ public class DropPointExporer {
             DropPoint current = queue.remove();
             if (isKnown(current)) {
                 continue;
-        }
+            }
 
             dropPoints.add(current);
 
-        for (AIAction action : actions) {
+            for (AIAction action : actions) {
                 DropPoint nextDropPoint = new DropPoint(current);
                 nextDropPoint.executionOrder.add(action);
 
@@ -97,17 +97,5 @@ public class DropPointExporer {
         removeDuplicates();
 
         return dropPoints;
-    }
-
-    public static void main() {
-        GameEngine engine = new GameEngine(10, 20, null);
-        DropPointExporer explorer = new DropPointExporer(engine);
-        engine.start();
-
-        for (DropPoint dp : explorer.get()) {
-            System.out.println(dp);
-        }
-
-        System.out.println("Total drop points: " + explorer.get().size());
     }
 }

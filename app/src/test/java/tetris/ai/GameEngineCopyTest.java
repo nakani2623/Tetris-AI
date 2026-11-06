@@ -60,10 +60,10 @@ class GameEngineCopyTest {
         List<TetrominoSnapshot> before = snapshot(source.getBoard().getAllTetrominos());
 
         GameEngine exploredEngine = new GameEngine(source);
-        Set<DropPoint> dropPoints = new DropPointExporer(exploredEngine).get();
+        Set<DropPoint> dropPoints = new DropPointExporer(exploredEngine).run();
 
         assertTrue(dropPoints.stream().anyMatch(
-            point -> !point.tetromino.isSamePosition(source.getBoard().getcurrentTetromino())
+            point -> !point.getTetromino().isSamePosition(source.getBoard().getcurrentTetromino())
         ));
         assertEquals(before, snapshot(source.getBoard().getAllTetrominos()));
     }

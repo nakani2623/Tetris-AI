@@ -15,6 +15,8 @@ import tetris.controller.input.JavaFXKeyboardAdapter;
 import tetris.controller.input.KeyBinds;
 import tetris.engine.Board;
 import tetris.engine.GameEngine;
+import tetris.engine.DelayedLock;
+import tetris.engine.AutoMoveScheduler;
 import tetris.engine.observers.BoardDisplayManager;
 import tetris.engine.observers.HoldDisplayManager;
 import tetris.engine.observers.NextQueueDisplayManager;
@@ -31,12 +33,14 @@ import tetris.graphics.GameWindow;
 
 public class App extends Application {
     private KeyBinds keyBinds = new KeyBinds();
-    private final GameEngine engine = new GameEngine(new Board(10, 20), new JavaFXMainThreadDispatcher());
+    private final GameEngine engine = new GameEngine(10, 20);
     private final GameWindow window = new GameWindow(keyBinds);
     private MainThreadDispatcher dispatcher = new JavaFXMainThreadDispatcher();
     private final GameController controller = new GameController(engine, window, dispatcher);
     @Override
     public void start(Stage stage) {
+        engine.setLockPolicy(new DelayedLock(dispatcher, 500, 15));
+        engine.setAutoMoveScheduler(new AutoMoveScheduler(1, 0, dispatcher, engine));
         // load config
         addKeyboardControl();
 

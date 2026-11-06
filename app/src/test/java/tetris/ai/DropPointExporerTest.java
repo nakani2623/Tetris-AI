@@ -162,7 +162,7 @@ class DropPointExporerTest {
     }
 
     private GameEngine engineWithCurrentTetromino(int width, Tetromino current) {
-        GameEngine engine = new GameEngine(width, 20, null);
+        GameEngine engine = new GameEngine(width, 20);
         Board board = engine.getBoard();
         board.getAllTetrominos().add(current);
         board.setCurrentTetromino(current);

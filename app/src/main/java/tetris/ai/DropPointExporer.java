@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 
-import tetris.engine.Board;
 import tetris.engine.GameEngine;
 
 /**
@@ -16,13 +15,11 @@ import tetris.engine.GameEngine;
  */
 public class DropPointExporer {
     GameEngine engine;
-    private Board board;
     private Set<AIAction> actions = new HashSet<>();
     private Set<DropPoint> dropPoints = new HashSet<>();
 
     public DropPointExporer(GameEngine engine) {
         this.engine = engine;
-        this.board = engine.getBoard();
         actions.add(AIAction.MOVE_LEFT);
         actions.add(AIAction.MOVE_RIGHT);
         actions.add(AIAction.ROTATE_CLOCKWISE);
@@ -47,7 +44,17 @@ public class DropPointExporer {
 
                 action.execute(nextDropPoint.engine);
                 queue.add(nextDropPoint);
+
+                // again with softdrop
+                DropPoint softDropPoint = new DropPoint(current);
+                softDropPoint.executionOrder.add(AIAction.SOFT_DROP);
+                softDropPoint.executionOrder.add(action);
+
+                AIAction.SOFT_DROP.execute(softDropPoint.engine);
+                action.execute(softDropPoint.engine);
+                queue.add(softDropPoint);
             }
+
         }
 
         for (DropPoint dp : dropPoints) {

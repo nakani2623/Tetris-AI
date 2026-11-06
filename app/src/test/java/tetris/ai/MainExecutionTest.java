@@ -29,7 +29,7 @@ class MainExecutionTest {
                 throw new IllegalStateException("Unexpected additional dispatched task");
             }
         };
-        GameEngine engine = new GameEngine(10, 20, null);
+        GameEngine engine = new GameEngine(10, 20);
         Tetromino current = new Tetromino(new Point(5, 5), TetrominoType.T);
         Board board = engine.getBoard();
         board.setCurrentTetromino(current);

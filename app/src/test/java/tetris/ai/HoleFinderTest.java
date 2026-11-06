@@ -14,7 +14,7 @@ public class HoleFinderTest {
     @Test 
     void emptyBoardHasOneHole() {
         // Arrange
-        GameEngine engine = new GameEngine(10, 20, null);
+        GameEngine engine = new GameEngine(10, 20);
         HoleFinder holeFinder = new HoleFinder(engine.getBoard());
 
         // Act
@@ -27,7 +27,7 @@ public class HoleFinderTest {
     @Test 
     void currentTetrominoIgnored() {
         // Arrange
-        GameEngine engine = new GameEngine(4, 20, null);
+        GameEngine engine = new GameEngine(4, 20);
         Tetromino current = new Tetromino(new Point(1, 10), TetrominoType.I);
         addTetromino(engine.getBoard(), current);
         engine.getBoard().setCurrentTetromino(current);
@@ -43,7 +43,7 @@ public class HoleFinderTest {
     @Test
     void singleTetrominoCreatesHoles() {
         // Arrange
-        GameEngine engine = new GameEngine(4, 20, null);
+        GameEngine engine = new GameEngine(4, 20);
         addTetromino(engine.getBoard(), new Tetromino(new Point(1, 10), TetrominoType.I));
         HoleFinder holeFinder = new HoleFinder(engine.getBoard());
 
@@ -57,7 +57,7 @@ public class HoleFinderTest {
     @Test
     void multipleTetrominosCreateHoles() {
         // Arrange
-        GameEngine engine = new GameEngine(4, 20, null);
+        GameEngine engine = new GameEngine(4, 20);
         addTetromino(engine.getBoard(), new Tetromino(new Point(1, 6), TetrominoType.I));
         addTetromino(engine.getBoard(), new Tetromino(new Point(1, 12), TetrominoType.I));
         HoleFinder holeFinder = new HoleFinder(engine.getBoard());

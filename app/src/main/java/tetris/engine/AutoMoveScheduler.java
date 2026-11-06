@@ -7,7 +7,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import tetris.controller.dispatch.JavaFXMainThreadDispatcher;
 import tetris.controller.dispatch.MainThreadDispatcher;
 import tetris.engine.type.Direction;
 
@@ -22,7 +21,8 @@ public class AutoMoveScheduler {
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> gravityTask;
     private ScheduledFuture<?> arrTask;
-    private MainThreadDispatcher dispatcher = new JavaFXMainThreadDispatcher();
+    private final MainThreadDispatcher dispatcher;
+    private long generation;
     private Map<Direction, Integer> DASCharges = new HashMap<>(
         Map.of(Direction.LEFT, 0, Direction.RIGHT, 0)
     );
@@ -35,6 +35,7 @@ public class AutoMoveScheduler {
     }
 
     public void start() {
+        if (scheduler != null && !scheduler.isShutdown()) return;
         scheduler = Executors.newSingleThreadScheduledExecutor();
         resetGravityTimeline(gravity);
     }
@@ -92,8 +93,11 @@ public class AutoMoveScheduler {
             engine.move(direction);
             applySoftDropEffect();
             long duration = (long)(ARR * 1000 / 60);
+            if (scheduler == null || scheduler.isShutdown()) return;
+            long ticket = generation;
             arrTask = scheduler.scheduleAtFixedRate( () -> {
                 dispatcher.dispatch(() -> {
+                    if (ticket != generation) return;
                     // horizontalMove(direction);
                     engine.move(direction);
                     applySoftDropEffect();
@@ -117,12 +121,15 @@ public class AutoMoveScheduler {
         this.softDropFactor = softDropFactor;
     }
     public void resetGravityTimeline(double gravity){
+        if (scheduler == null || scheduler.isShutdown()) return;
         if (gravityTask != null) {
             gravityTask.cancel(false);
         }
         long duration = (long)(1000 / gravity);
+        long ticket = generation;
         gravityTask = scheduler.scheduleAtFixedRate( () -> {
             dispatcher.dispatch(() -> {
+                if (ticket != generation || engine.getBoard().getcurrentTetromino() == null) return;
                 engine.move(Direction.DOWN);
                 // try {
                 //     engine.move(Direction.DOWN);
@@ -151,7 +158,16 @@ public class AutoMoveScheduler {
         return gravity;
     }
 
+    public void reset() {
+        generation++;
+        isSoftDropping = false;
+        DASCharges.replaceAll((direction, charge) -> 0);
+        if (arrTask != null) arrTask.cancel(false);
+        resetGravityTimeline(gravity);
+    }
+
     public void dispose() {
-        scheduler.shutdown();
+        generation++;
+        if (scheduler != null) scheduler.shutdownNow();
     }
 }

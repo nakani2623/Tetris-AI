@@ -2,15 +2,10 @@ package tetris.engine;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 // import javafx.application.Platform;
 
 import tetris.controller.GameOverListener;
-import tetris.controller.dispatch.MainThreadDispatcher;
 import tetris.engine.observers.Observable;
 import tetris.engine.observers.Observer;
 import tetris.engine.operator.*;
@@ -37,13 +32,9 @@ public class GameEngine implements Observable {
     // hold
     private TetrominoType holdTetrominoType;
 
-    private ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private ScheduledFuture<?> lockTask;
-    private int maxLockResets = 15;
-    private int lockResets;
+    private LockPolicy lockPolicy;
+    private boolean started;
 
-    // other self contained field
-    private MainThreadDispatcher dispatcher;
     private GameOverListener listener;
 
     // plan to remove
@@ -54,29 +45,28 @@ public class GameEngine implements Observable {
      * @param width
      * @param height
      */
-    public GameEngine(Board board, MainThreadDispatcher dispatcher) {
+    public GameEngine(Board board) {
         this.board = board;
         // configure game, todo: create and use initEngine(JSON? configFile) instead below
         observers = new ArrayList<>();
-        this.dispatcher = dispatcher;
 
         // default components behaviour
         listener = () -> {};
-        autoMoveScheduler = new AutoMoveScheduler(1, 0, dispatcher, this);
         spinDetecter = new AllMiniDetecter();
         rotator = new SuperRotator();
         nextQueue = new NextQueue();
         // holdManager = new HoldManager();
     }
     
-    public GameEngine(int width, int height, MainThreadDispatcher dispatcher) {
-        this(new Board(width, height), dispatcher);
+    public GameEngine(int width, int height) {
+        this(new Board(width, height));
     }
 
+    /** Copies board/hold state for simulation, without timers or a shared score manager. */
     public GameEngine(GameEngine source) {
-        this(new Board(source.board), source.dispatcher);
+        this(new Board(source.board));
         this.holdTetrominoType = source.holdTetrominoType;
-        this.scoreManager = source.scoreManager;
+        // Runtime components and mutable scoring state are intentionally not copied.
     }
 //  ███████╗████████╗ █████╗ ██████╗ ████████╗
 //  ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝
@@ -85,15 +75,18 @@ public class GameEngine implements Observable {
 //  ███████║   ██║   ██║  ██║██║  ██║   ██║
 //  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
     public void start() {
+        started = true;
         spawn();
-        autoMoveScheduler.start();
+        if (autoMoveScheduler != null) autoMoveScheduler.start();
     }
 
     /**
      * Reset the board state into initial
      */
     public void reset() {
-        scoreManager.reset();
+        resetLockPolicy();
+        if (autoMoveScheduler != null) autoMoveScheduler.reset();
+        if (scoreManager != null) scoreManager.reset();
         board.reset();
         nextQueue.reset();
         holdTetrominoType = null;
@@ -125,13 +118,15 @@ public class GameEngine implements Observable {
         else if (direction == Direction.RIGHT) {op = new MoveRightOperator();}
         else {op = null;}
 
-        while (true) {
+        Tetromino moving = board.getcurrentTetromino();
+        while (board.getcurrentTetromino() == moving) {
             if (! board.tryOperate(op)) {
                 break;
             }
             checkLanded();
+            if (board.getcurrentTetromino() != moving) break;
             // let "auto move scheduler move piece by DAS/SoftDrop state"
-            autoMoveScheduler.onOperate();
+            if (autoMoveScheduler != null) autoMoveScheduler.onOperate();
         }
     }
 
@@ -144,8 +139,7 @@ public class GameEngine implements Observable {
 //            ◀───[ T ]───▶
     public void hold() {
         // remove current tetromino
-        if (lockTask != null)
-            lockTask.cancel(false);
+        resetLockPolicy();
         board.getAllTetrominos().remove(board.getcurrentTetromino());
 
         Tetromino currentTetrominoClone = new Tetromino(board.getcurrentTetromino());
@@ -154,12 +148,12 @@ public class GameEngine implements Observable {
         }
 
         else {
-            if (!board.spawn(holdTetrominoType) || scoreManager.haveAchievedGoal()) {
+            if (!board.spawn(holdTetrominoType) || (scoreManager != null && scoreManager.haveAchievedGoal())) {
                 listener.onGameOver();
                 return;
             }
-            autoMoveScheduler.onSpawn();
-            lockResets = 0;
+            if (autoMoveScheduler != null) autoMoveScheduler.onSpawn();
+            checkLanded();
         }
 
         holdTetrominoType = currentTetrominoClone.type;
@@ -174,15 +168,15 @@ public class GameEngine implements Observable {
 //  ███████║╚██████╔╝██║        ██║       ██████╔╝██║  ██║╚██████╔╝██║
 //  ╚══════╝ ╚═════╝ ╚═╝        ╚═╝       ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝
     public void startSoftDrop() {
-        autoMoveScheduler.startSoftDrop();
+        if (autoMoveScheduler != null) autoMoveScheduler.startSoftDrop();
     }
 
     public void endSoftDrop() {
-        autoMoveScheduler.endSoftDrop();
+        if (autoMoveScheduler != null) autoMoveScheduler.endSoftDrop();
     }
 
     public void setSoftDropFactor(double softDropFactor) {
-        autoMoveScheduler.setSoftDropFactor(softDropFactor);
+        if (autoMoveScheduler != null) autoMoveScheduler.setSoftDropFactor(softDropFactor);
     }
 //  ██████╗  █████╗ ███████╗     ██████╗██╗  ██╗ █████╗ ██████╗  ██████╗ ███████╗
 //  ██╔══██╗██╔══██╗██╔════╝    ██╔════╝██║  ██║██╔══██╗██╔══██╗██╔════╝ ██╔════╝
@@ -191,11 +185,11 @@ public class GameEngine implements Observable {
 //  ██████╔╝██║  ██║███████║    ╚██████╗██║  ██║██║  ██║██║  ██║╚██████╔╝███████╗
 //  ╚═════╝ ╚═╝  ╚═╝╚══════╝     ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
     public void chargeDAS(Direction direction) {
-        autoMoveScheduler.chargeDAS(direction);
+        if (autoMoveScheduler != null) autoMoveScheduler.chargeDAS(direction);
     }  
     
     public void unchargeDAS(Direction direction) {
-        autoMoveScheduler.unchargeDAS(direction);
+        if (autoMoveScheduler != null) autoMoveScheduler.unchargeDAS(direction);
     }   
     
 
@@ -209,7 +203,7 @@ public class GameEngine implements Observable {
         if (!rotator.rotate(rotation, board)) {
             return;
         }
-        autoMoveScheduler.onOperate();
+        if (autoMoveScheduler != null) autoMoveScheduler.onOperate();
         // detect spin
         SpinState currSpinState = spinDetecter.detectSpin(board);
 
@@ -230,16 +224,17 @@ public class GameEngine implements Observable {
 //  ╚══════╝╚═╝     ╚═╝  ╚═╝ ╚══╝╚══╝ ╚═╝  ╚═══╝
 //                        ▼
     void spawn() {
+        resetLockPolicy();
         // get tetr type from queue
         TetrominoType currentTetrominoType = nextQueue.remove();
 
         // try spawn, if gameover, notify controller
-        if (!board.spawn(currentTetrominoType) || scoreManager.haveAchievedGoal()) {
+        if (!board.spawn(currentTetrominoType) || (scoreManager != null && scoreManager.haveAchievedGoal())) {
             listener.onGameOver();
             return;
         }
-        autoMoveScheduler.onSpawn();
-        lockResets = 0;
+        if (autoMoveScheduler != null) autoMoveScheduler.onSpawn();
+
 
         checkLanded();
         board.updateShadow();
@@ -253,16 +248,16 @@ public class GameEngine implements Observable {
 //  ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝
 //          ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
     void lock() {
+        resetLockPolicy();
         int nLinesCleared = board.clearCompleted();
-        scoreManager.onLock(nLinesCleared);
-        if (lockTask != null)
-            lockTask.cancel(false);
+        if (scoreManager != null) scoreManager.onLock(nLinesCleared);
         spawn();
     }
 
     public void hardDrop() {
+        Tetromino dropping = board.getcurrentTetromino();
         moveDAS(Direction.DOWN);
-        lock();
+        if (board.getcurrentTetromino() == dropping) lock();
     }
     /**
      * check if currentTetromino is landed, 
@@ -270,26 +265,29 @@ public class GameEngine implements Observable {
      * otherwise, end lock Timer
      */
     void checkLanded() {
-        if (board.landed(board.getcurrentTetromino())) {
-            if (lockTask != null) {
-                lockTask.cancel(false);
-            }
-            lockTask = scheduler.schedule(() -> { 
-                dispatcher.dispatch(() -> {
-                    lock();
-                }); 
-                
-            }, 500, TimeUnit.MILLISECONDS);
-            lockResets ++;
-            if (lockResets > maxLockResets) {
-                lock();
-            }
+        if (lockPolicy != null && board.getcurrentTetromino() != null) {
+            lockPolicy.onPositionChanged(board.landed(board.getcurrentTetromino()), this::lock);
         }
-        else {
-            // lockTimer.stop();
-            if (lockTask != null)
-                lockTask.cancel(false);
-        }
+    }
+
+    private void resetLockPolicy() {
+        if (lockPolicy != null) lockPolicy.reset();
+    }
+
+    /** Install on the game thread. The engine owns and closes the component. */
+    public void setLockPolicy(LockPolicy policy) {
+        if (lockPolicy == policy) return;
+        if (lockPolicy != null) lockPolicy.close();
+        lockPolicy = policy;
+        checkLanded();
+    }
+
+    /** Install on the game thread; null disables automatic movement. */
+    public void setAutoMoveScheduler(AutoMoveScheduler scheduler) {
+        if (autoMoveScheduler == scheduler) return;
+        if (autoMoveScheduler != null) autoMoveScheduler.dispose();
+        autoMoveScheduler = scheduler;
+        if (started && scheduler != null) scheduler.start();
     }
 
 //   ██████╗ ████████╗██╗  ██╗███████╗██████╗ ███████╗
@@ -299,9 +297,13 @@ public class GameEngine implements Observable {
 //  ╚██████╔╝   ██║   ██║  ██║███████╗██║  ██║███████║
 //   ╚═════╝    ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝
     public void dispose() {
-        scheduler.shutdown();
-        scoreManager.dispose();
-        autoMoveScheduler.dispose();
+        started = false;
+        setLockPolicy(null);
+        setAutoMoveScheduler(null);
+        if (scoreManager != null) {
+            scoreManager.dispose();
+            scoreManager = null;
+        }
     }
 
     public ScoreManager getScoreManager() {
@@ -309,7 +311,7 @@ public class GameEngine implements Observable {
     }
 
     public double getGravity() {
-        return autoMoveScheduler.getGravity();
+        return autoMoveScheduler == null ? 0 : autoMoveScheduler.getGravity();
      }
     
     public TetrominoType getHoldTetrominoType() {
@@ -317,7 +319,7 @@ public class GameEngine implements Observable {
     }
 
     public void setGravity(double gravity){
-        autoMoveScheduler.setGravity(gravity);
+        if (autoMoveScheduler != null) autoMoveScheduler.setGravity(gravity);
     }
 
     public void setGameOverListener(GameOverListener listener) {

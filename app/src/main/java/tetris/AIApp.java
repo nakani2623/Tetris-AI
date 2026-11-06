@@ -11,6 +11,8 @@ import tetris.controller.dispatch.JavaFXMainThreadDispatcher;
 import tetris.controller.dispatch.MainThreadDispatcher;
 import tetris.controller.input.KeyBinds;
 import tetris.engine.GameEngine;
+import tetris.engine.DelayedLock;
+import tetris.engine.AutoMoveScheduler;
 import tetris.engine.observers.*;
 
 import tetris.engine.score.ZenScore;
@@ -20,12 +22,14 @@ import tetris.graphics.GameWindow;
 
 public class AIApp extends Application {
     private KeyBinds keyBinds = new KeyBinds();
-    private final GameEngine engine = new GameEngine(10, 20, new JavaFXMainThreadDispatcher());
+    private final GameEngine engine = new GameEngine(10, 20);
     private final GameWindow window = new GameWindow(keyBinds);
     private MainThreadDispatcher dispatcher = new JavaFXMainThreadDispatcher();
     private final GameController controller = new GameController(engine, window, dispatcher);
     @Override
     public void start(Stage stage) {
+        engine.setLockPolicy(new DelayedLock(dispatcher, 500, 15));
+        engine.setAutoMoveScheduler(new AutoMoveScheduler(1, 0, dispatcher, engine));
         // set game mode
         engine.setScoreManager(new ZenScore());
         // engine.setScoreManager(new SprintScore(10));

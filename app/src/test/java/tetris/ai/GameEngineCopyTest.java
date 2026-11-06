@@ -69,7 +69,7 @@ class GameEngineCopyTest {
     }
 
     private GameEngine engineWithPieces() {
-        GameEngine engine = new GameEngine(10, 20, null);
+        GameEngine engine = new GameEngine(10, 20);
         Tetromino lockedPiece = new Tetromino(new Point(2, 17), TetrominoType.J);
         Tetromino currentPiece = new Tetromino(new Point(5, 5), TetrominoType.T);
         Board board = engine.getBoard();
